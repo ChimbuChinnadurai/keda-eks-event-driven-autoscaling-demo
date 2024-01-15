@@ -21,9 +21,9 @@ addons:
 #   version: latest
 #   resolveConflicts: overwrite
 managedNodeGroups:
-    - name: my-demo-workers
+    - name: keda-demo-cluster-workers
       labels: { role: workers }
-      instanceType: t3.large
+      instanceType: t3.medium
       volumeSize: 100
       privateNetworking: true
       desiredCapacity: 2

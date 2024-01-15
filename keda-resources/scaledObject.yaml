@@ -1,10 +1,10 @@
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
-  name: nginx-scaledobject
+  name: sqs-test-app
 spec:
   scaleTargetRef:
-    name: nginx
+    name: sqs-test-app # Target deployment name
   minReplicaCount: 0  # We don't want pods if the queue is empty
   maxReplicaCount: 5  # We don't want to have more than 5 replicas
   pollingInterval: 10 # How frequently we should go for metrics (in seconds)

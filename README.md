@@ -17,33 +17,33 @@ The eksctl tool uses CloudFormation under the hood, creating one stack for the E
 Run the below command to create a new cluster in the `us-west-2` region and refer to `eks/keda-demo-cluster.yaml` for sample cluster configuration; expect this to take around 20 minutes.
 
 ```bash
-eksctl create cluster -f cluster/keda-demo-cluster.yaml
+eksctl create cluster -f eks/keda-demo-cluster.yaml
 ```
-
-We will use [IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) to provide applications including KEDA to access AWS APIs.(EKS Pod Identities)[https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html] support is currently not supported in KEDA.
 
 <!-- The sample cluster is also deployed with EKS Pod Identitiy add-on which provide the ability to manage credentials for your applications, similar to the way that Amazon EC2 instance profiles provide credentials to Amazon EC2 instances. Instead of creating and distributing your AWS credentials to the containers or using the Amazon EC2 instance's role, you associate an IAM role with a Kubernetes service account and configure your Pods to use the service account. Refer to the [official documentation](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) for more details. -->
 
 ### Setup IAM roles for service accounts
 
+We will use [IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) to provide applications including KEDA to access AWS APIs.(EKS Pod Identities)[https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html] support is currently not supported in KEDA.
+
 The cluster has an OpenID Connect (OIDC) issuer URL associated with it. To use AWS Identity and Access Management (IAM) roles for service accounts, an IAM OIDC provider must exist for your cluster's OIDC issuer URL.
 
-Run the below command to retrive the OIDC arn details and update the `KEDA/keda-operator-iam.yaml` cloudformation template.
+Run the below command to retrive the OIDC arn details and update the `keda-resources/keda-operator-iam.yaml` cloudformation template.
 
 ```bash
 aws iam list-open-id-connect-providers
 ```
 
-Deploy the cloudformation template for the IAM resources.
+Deploy the CloudFormation template for the IAM resources. Include the AWS account number and OIDC URL from the above results.
 
 ```bash
-aws cloudformation deploy --template-file KEDA/keda-operator-iam.yaml --stack-name keda-operator-iam --capabilities CAPABILITY_IAM --parameter-overrides AWSAccountNumber=<<EKS-CLUSTER-AWS-ACCOUNT-NUMBER>> EKSClusterOIDCURL="<<EKS-CLUSTER-OIDC-URL-WITHOUT-HTTPS-IN-URL>>"
+aws cloudformation deploy --template-file keda-resources/keda-operator-iam.yaml --stack-name keda-operator-iam --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM CAPABILITY_IAM  --parameter-overrides EKSClusterOIDCURL="<<EKS-CLUSTER-OIDC-URL-WITHOUT-HTTPS-IN-URL>>"
 ```
 
 Example:
 
 ```bash
-aws cloudformation deploy --template-file KEDA/keda-operator-iam.yaml --stack-name keda-operator-iam --capabilities CAPABILITY_IAM --parameter-overrides AWSAccountNumber=317630533282 EKSClusterOIDCURL="oidc.eks.us-west-2.amazonaws.com/id/97E370F5123E8A876752C2945BDDF59A"
+aws cloudformation deploy --template-file keda-resources/keda-operator-iam.yaml --stack-name keda-operator-iam --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM CAPABILITY_IAM --parameter-overrides EKSClusterOIDCURL="oidc.eks.us-west-2.amazonaws.com/id/97E370F5123E8A876752C2945BDDF59A"
 ```
 
 <!-- Create a simple IAM policy for the keda operator to query the SQS attributes which is required for the HPA.
@@ -68,17 +68,15 @@ Create a pod identity association for KEDA.
 
 ### Deploy KEDA
 
-Use the below commands to deploy via Helm in the EKS cluster.
+Deploying KEDA with [Helm](https://keda.sh/docs/2.12/deploy/#helm) is very simple.
 
+Add and Update Helm repo
 ```bash
 helm repo add kedacore https://kedacore.github.io/charts
-```
-```bash
 helm repo update
 ```
-```bash
-helm install keda kedacore/keda --namespace keda --create-namespace
-```
+
+Install keda Helm chart and use the IAM role ARN from the above cloudformation stack.
 ```bash
 helm upgrade -install keda kedacore/keda \
     --namespace keda \
@@ -92,7 +90,7 @@ Example:
 ```bash
     helm upgrade -install keda kedacore/keda \
     --namespace keda \
-    --set 'serviceAccount.annotations.eks\.amazonaws\.com\/role-arn'="arn:aws:iam::317630533282:role/keda-operator-iam-KedaOperatorIAMRole-vmgKGIIbfiZ2" \
+    --set 'serviceAccount.annotations.eks\.amazonaws\.com\/role-arn'="arn:aws:iam::317630533282:role/Keda-Operator" \
     --create-namespace \
     --debug \
     --wait
@@ -104,23 +102,29 @@ kubectl get pods -n keda
 ```
 ### Create a sample SQS Queue
 
+Run the below command to create a sample SQS queue to publish the test messages.
+
 ```bash
 aws sqs create-queue --queue-name keda-test-queue --region <AWS-REGION>
 ```
 ### Deploy a sample application
 
-The sample application is based on nginx to demo the dynamic scaling from KEDA.
+The sample application is based on nginx to demo the dynamic scaling of deployment.
 
 ```bash
-kubectl create deployment sqs-app --image nginx --namespace default
+kubectl create deployment sqs-test-app --image nginx --namespace default --replicas 1
 ```
-Deploy the KEDA resources necessary for the autoscaling and replace queueURL value.
+Deploy the KEDA resources necessary for the autoscaling and update `queueURL`, `awsRegion` values.
 
 - scaledObject: sets the HPA rules. We’re using the SQS scaler
 
 - triggerAuthentication: tells the scaledObject how to authenticate to AWS.
 
 ```bash
-kubectl apply -f app/scaledObject.yaml
+kubectl apply -f keda-resources/scaledObject.yamlf
 ```
+
+### Test the setup
+
 Now we can send some messages and see if our deployment scales! Use the script `send-messages.sh` to send message to the queue and monitor the deployment.
+KEDA will automatically scale the number of replicas to zero when no messages are avaiable in the queue.

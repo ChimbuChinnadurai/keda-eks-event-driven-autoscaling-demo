@@ -4,11 +4,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Creates a stack containing an IAM role used to grant
   KEDA access to AWS infrastructures.
 
-Parameters:
-  AWSAccountNumber:
-    Type: String
-    Description: EKS cluster AWS Account Number
-    
+Parameters:    
   EKSClusterOIDCURL:
     Type: String
     Description: EKS cluster OIDC provider URL (without https)
@@ -17,21 +13,34 @@ Resources:
   KedaOperatorIAMRole:
     Type: AWS::IAM::Role
     Properties:
-      AssumeRolePolicyDocument:
-        Statement:
-        - Effect: Allow
-          Principal:
-            Federated: "arn:aws:iam::${AWSAccountNumber}:oidc-provider/${EKSClusterOIDCURL}"
-          Action:
-          - sts:AssumeRoleWithWebIdentity
-          Condition:
-            StringEquals:
-              "${EKSClusterOIDCURL}:sub": "system:serviceaccount:keda:keda-operator"
+      RoleName: Keda-Operator
+      AssumeRolePolicyDocument: 
+                            Fn::Sub: 
+                              - |
+                                {
+                                  "Version": "2012-10-17",
+                                  "Statement": [
+                                    {
+                                      "Effect": "Allow",
+                                      "Principal": {
+                                        "Federated": "arn:aws:iam::${AWS::AccountId}:oidc-provider/${EKSClusterOIDCURL}"
+                                      },
+                                      "Action": "sts:AssumeRoleWithWebIdentity",
+                                      "Condition": {
+                                        "StringEquals": {
+                                          "${EKSClusterOIDCURL}:sub": "system:serviceaccount:keda:keda-operator"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              -
+                                EKSClusterOIDCURL: !Ref EKSClusterOIDCURL
 
   KedaOperatorIAMPolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: KedaOperatorIAMPolicy
+      PolicyName: Keda-Operator-Policy
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
