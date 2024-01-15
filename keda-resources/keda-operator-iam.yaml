@@ -1,0 +1,53 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Creates a stack containing an IAM role used to grant
+  KEDA access to AWS infrastructures.
+
+Parameters:
+  AWSAccountNumber:
+    Type: String
+    Description: EKS cluster AWS Account Number
+    
+  EKSClusterOIDCURL:
+    Type: String
+    Description: EKS cluster OIDC provider URL (without https)
+
+Resources:
+  KedaOperatorIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Federated: "arn:aws:iam::${AWSAccountNumber}:oidc-provider/${EKSClusterOIDCURL}"
+          Action:
+          - sts:AssumeRoleWithWebIdentity
+          Condition:
+            StringEquals:
+              "${EKSClusterOIDCURL}:sub": "system:serviceaccount:keda:keda-operator"
+
+  KedaOperatorIAMPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: KedaOperatorIAMPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action:
+          - sqs:GetQueueAttributes
+          Effect: Allow
+          Resource: "*"
+      Roles: [!Ref KedaOperatorIAMRole]
+
+Outputs:
+  RoleId:
+    Description: The logical ID of the IAM role
+    Value: !Ref KedaOperatorIAMRole
+  RoleArn:
+    Description: The ARN of the IAM role
+    Value: !GetAtt [KedaOperatorIAMRole, Arn]
+  PolicyId:
+    Description: The logical ID of the IAM policy
+    Value: !Ref KedaOperatorIAMPolicy
