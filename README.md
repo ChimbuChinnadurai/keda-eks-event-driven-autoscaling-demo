@@ -20,15 +20,15 @@ Run the below command to create a new cluster in the `us-west-2` region and refe
 eksctl create cluster -f eks/keda-demo-cluster.yaml
 ```
 
-<!-- The sample cluster is also deployed with EKS Pod Identitiy add-on which provide the ability to manage credentials for your applications, similar to the way that Amazon EC2 instance profiles provide credentials to Amazon EC2 instances. Instead of creating and distributing your AWS credentials to the containers or using the Amazon EC2 instance's role, you associate an IAM role with a Kubernetes service account and configure your Pods to use the service account. Refer to the [official documentation](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) for more details. -->
+<!-- The sample cluster is also deployed with the EKS Pod Identity add-on which provides the ability to manage credentials for your applications, similar to the way that Amazon EC2 instance profiles provide credentials to Amazon EC2 instances. Instead of creating and distributing your AWS credentials to the containers or using the Amazon EC2 instance's role, you associate an IAM role with a Kubernetes service account and configure your Pods to use the service account. Refer to the [official documentation](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) for more details. -->
 
 ### Setup IAM roles for service accounts
 
-We will use [IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) to provide applications including KEDA to access AWS APIs.(EKS Pod Identities)[https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html] support is currently not supported in KEDA.
+We will use [IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) to provide applications including KEDA to access AWS APIs.(EKS Pod Identities)[https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html] is currently not supported in KEDA.
 
 The cluster has an OpenID Connect (OIDC) issuer URL associated with it. To use AWS Identity and Access Management (IAM) roles for service accounts, an IAM OIDC provider must exist for your cluster's OIDC issuer URL.
 
-Run the below command to retrive the OIDC arn details and update the `keda-resources/keda-operator-iam.yaml` cloudformation template.
+Run the below command to retrieve the OIDC arn details and update the `keda-resources/keda-operator-iam.yaml` cloudformation template.
 
 ```bash
 aws iam list-open-id-connect-providers
@@ -46,7 +46,7 @@ Example:
 aws cloudformation deploy --template-file keda-resources/keda-operator-iam.yaml --stack-name keda-operator-iam --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM CAPABILITY_IAM --parameter-overrides EKSClusterOIDCURL="oidc.eks.us-west-2.amazonaws.com/id/97E370F5123E8A876752C2945BDDF59A"
 ```
 
-<!-- Create a simple IAM policy for the keda operator to query the SQS attributes which is required for the HPA.
+<!-- Create a simple IAM policy for the keda operator to query the SQS attributes which are required for the HPA.
 
     aws iam create-policy \
         --policy-name keda-operator-policy \
@@ -121,10 +121,12 @@ Deploy the KEDA resources necessary for the autoscaling and update `queueURL`, `
 - triggerAuthentication: tells the scaledObject how to authenticate to AWS.
 
 ```bash
-kubectl apply -f keda-resources/scaledObject.yamlf
+kubectl apply -f keda-resources/scaledObject.yaml
 ```
 
 ### Test the setup
 
-Now we can send some messages and see if our deployment scales! Use the script `send-messages.sh` to send message to the queue and monitor the deployment.
-KEDA will automatically scale the number of replicas to zero when no messages are avaiable in the queue.
+Now we can send some messages and see if our deployment scales! Use the script `send-messages.sh` to send messages to the queue and monitor the deployment.
+KEDA will automatically scale the number of replicas to zero when no messages are available in the queue.
+
+https://github.com/ChimbuChinnadurai/keda-eks-event-driven-autoscaling-demo/assets/46873109/3d2318f5-df78-4035-a6fc-6598272ea015
