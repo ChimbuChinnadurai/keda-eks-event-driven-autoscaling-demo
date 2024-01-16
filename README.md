@@ -129,4 +129,4 @@ kubectl apply -f keda-resources/scaledObject.yaml
 Now we can send some messages and see if our deployment scales! Use the script `send-messages.sh` to send messages to the queue and monitor the deployment.
 KEDA will automatically scale the number of replicas to zero when no messages are available in the queue.
 
-https://github.com/ChimbuChinnadurai/keda-eks-event-driven-autoscaling-demo/assets/46873109/3d2318f5-df78-4035-a6fc-6598272ea015
+https://github.com/ChimbuChinnadurai/keda-eks-event-driven-autoscaling-demo/assets/46873109/3e5ef49d-5c99-40a6-84a7-357528edbff7
